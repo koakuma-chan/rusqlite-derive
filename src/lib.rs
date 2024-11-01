@@ -22,7 +22,7 @@ pub fn from_sql(input: TokenStream) -> TokenStream {
                         //
                         struct_name,
                         //
-                        "FromSql can only be derived for tuple structs",
+                        "FromSql can only be derived for tuple structs with exactly one field",
                     )
                     //
                     .to_compile_error()
@@ -36,7 +36,7 @@ pub fn from_sql(input: TokenStream) -> TokenStream {
                 //
                 struct_name,
                 //
-                "FromSql can only be derived for tuple structs",
+                "FromSql can only be derived for tuple structs with exactly one field",
             )
             //
             .to_compile_error()
@@ -71,7 +71,7 @@ pub fn to_sql(input: TokenStream) -> TokenStream {
                     //
                     struct_name,
                     //
-                    "ToSql can only be derived for tuple structs",
+                    "ToSql can only be derived for tuple structs with exactly one field",
                 )
                 //
                 .to_compile_error()
@@ -84,7 +84,7 @@ pub fn to_sql(input: TokenStream) -> TokenStream {
                 //
                 struct_name,
                 //
-                "ToSql can only be derived for tuple structs",
+                "ToSql can only be derived for tuple structs with exactly one field",
             )
             //
             .to_compile_error()
