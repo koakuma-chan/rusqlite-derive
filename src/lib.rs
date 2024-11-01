@@ -2,48 +2,25 @@ use proc_macro::TokenStream;
 
 use quote::quote;
 
-use syn::{parse_macro_input, Data, DeriveInput, Fields};
+use syn::{parse_macro_input, Data, DeriveInput, Fields, Type};
 
 #[proc_macro_derive(FromSql)]
 pub fn from_sql(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
 
-    let struct_name = &input.ident;
+    let inner_type = match inner_type(&input) {
+        Ok(inner_type) => inner_type,
 
-    let inner_type = match input.data {
-        Data::Struct(ref data) => {
-            match data.fields {
-                Fields::Unnamed(ref fields) if fields.unnamed.len() == 1 => {
-                    &fields.unnamed.first().unwrap().ty
-                }
-
-                _ => {
-                    return syn::Error::new_spanned(
-                        //
-                        struct_name,
-                        //
-                        "FromSql can only be derived for tuple structs with exactly one field",
-                    )
-                    //
-                    .to_compile_error()
-                    //
-                    .into();
-                }
-            }
-        }
-        _ => {
-            return syn::Error::new_spanned(
+        Err(e) => {
+            return e
                 //
-                struct_name,
+                .to_compile_error()
                 //
-                "FromSql can only be derived for tuple structs with exactly one field",
-            )
-            //
-            .to_compile_error()
-            //
-            .into();
+                .into();
         }
     };
+
+    let struct_name = &input.ident;
 
     quote! {
         impl ::rusqlite::types::FromSql for #struct_name {
@@ -60,46 +37,64 @@ pub fn from_sql(input: TokenStream) -> TokenStream {
 pub fn to_sql(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
 
-    let struct_name = &input.ident;
+    let inner_type = match inner_type(&input) {
+        Ok(inner_type) => inner_type,
 
-    match input.data {
-        Data::Struct(data) => match data.fields {
-            Fields::Unnamed(fields) if fields.unnamed.len() == 1 => (),
-
-            _ => {
-                return syn::Error::new_spanned(
-                    //
-                    struct_name,
-                    //
-                    "ToSql can only be derived for tuple structs with exactly one field",
-                )
+        Err(e) => {
+            return e
                 //
                 .to_compile_error()
                 //
                 .into();
-            }
-        },
-        _ => {
-            return syn::Error::new_spanned(
-                //
-                struct_name,
-                //
-                "ToSql can only be derived for tuple structs with exactly one field",
-            )
-            //
-            .to_compile_error()
-            //
-            .into();
         }
-    }
+    };
+
+    let struct_name = &input.ident;
 
     quote! {
         impl ::rusqlite::types::ToSql for #struct_name {
             fn to_sql(&self) -> ::rusqlite::Result<::rusqlite::types::ToSqlOutput<'_>> {
-                self.0.to_sql()
+                <#inner_type as ::rusqlite::types::ToSql>::to_sql(&self.0)
             }
         }
     }
     //
     .into()
+}
+
+fn inner_type(input: &DeriveInput) -> syn::Result<&Type> {
+    let inner_type = match input.data {
+        Data::Struct(ref data) => {
+            match data.fields {
+                Fields::Unnamed(ref fields) if fields.unnamed.len() == 1 => {
+                    &fields.unnamed.first().unwrap().ty
+                }
+
+                _ => {
+                    return Err(
+                        //
+                        syn::Error::new_spanned(
+                            //
+                            &input.ident,
+                            //
+                            "Expected a tuple struct with exactly one field",
+                        ),
+                    );
+                }
+            }
+        }
+        _ => {
+            return Err(
+                //
+                syn::Error::new_spanned(
+                    //
+                    &input.ident,
+                    //
+                    "Expected a tuple struct with exactly one field",
+                ),
+            );
+        }
+    };
+
+    Ok(inner_type)
 }
